@@ -1,0 +1,7 @@
+name = "mangahub-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Free tier: 100k requests/day, 10ms CPU per request
+# Upgrade to Workers Paid ($5/mo) for 10M requests/day if needed
