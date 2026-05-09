@@ -75,7 +75,11 @@ export default function MangaCard({ manga }: MangaCardProps) {
           src={coverSrc}
           alt={manga.title}
           loading="lazy"
-          onError={handleImgError}
+          onLoad={() => console.log(`[cover OK] ${manga.title} → ${coverSrc?.slice(0, 80)}`)}
+          onError={() => {
+            console.warn(`[cover FAIL] ${manga.title} | src: ${coverSrc?.slice(0, 80)} | tryFallback: ${tryFallback}`)
+            handleImgError()
+          }}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
 

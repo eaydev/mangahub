@@ -121,6 +121,11 @@ function parseMdManga(item: any): Manga {
     ? mdCoverUrl(item.id, coverRel.attributes.fileName)
     : undefined
 
+  // Diagnostic: log raw cover relationship
+  if (!coverUrl) {
+    console.warn(`[parseMd] "${a.title?.en ?? '?'}" has NO cover — coverRel:`, JSON.stringify(coverRel)?.slice(0, 120))
+  }
+
   const authors = rels
     .filter((r) => r.type === 'author')
     .map((r) => ({ id: r.id, name: r.attributes?.name ?? 'Unknown' }))
@@ -285,11 +290,14 @@ async function _mdSearch(params: SearchParams): Promise<SearchResult> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await get<any>(mdUrl(`/manga?${p}`))
-  return {
-    data: data.data.map(parseMdManga),
-    total: data.total,
-    source: 'mangadex',
-  }
+  const parsed = data.data.map(parseMdManga)
+
+  // Diagnostic: log cover URL quality for first 3 results
+  parsed.slice(0, 3).forEach((m: Manga) => {
+    console.log(`[browse] "${m.title}" | coverUrl: ${m.coverUrl ?? 'MISSING'} | rating: ${m.contentRating}`)
+  })
+
+  return { data: parsed, total: data.total, source: 'mangadex' }
 }
 
 async function _comickSearch(params: SearchParams): Promise<SearchResult> {
