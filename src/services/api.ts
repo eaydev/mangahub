@@ -17,8 +17,21 @@ export const COMICK_BASE = 'https://api.comick.io'
 const MD_COVERS = 'https://uploads.mangadex.org/covers'
 const COMICK_IMG = 'https://meo.comick.pictures'
 
-// Worker URL — set at runtime from settings
-let _workerUrl = ''
+// Worker URL — read synchronously on module load so the very first API call uses it.
+// Priority: localStorage (user-configured) → build-time VITE_WORKER_URL env var.
+function _readWorkerUrl(): string {
+  try {
+    const s = JSON.parse(localStorage.getItem('mh_settings') ?? '{}')
+    if (s.workerUrl) return String(s.workerUrl).replace(/\/$/, '')
+  } catch { /* ignore */ }
+  try {
+    const env = (import.meta as { env?: Record<string, string> }).env
+    if (env?.VITE_WORKER_URL) return env.VITE_WORKER_URL.replace(/\/$/, '')
+  } catch { /* ignore */ }
+  return ''
+}
+
+let _workerUrl: string = _readWorkerUrl()
 export function setWorkerUrl(url: string) { _workerUrl = url.replace(/\/$/, '') }
 export function getWorkerUrl() { return _workerUrl }
 
@@ -32,8 +45,10 @@ function workerFetch<T>(path: string): Promise<T> {
 function mdUrl(path: string): string {
   return _workerUrl ? `${_workerUrl}/mangadex${path}` : `${MANGADEX_BASE}${path}`
 }
+// Comick through worker gets 502 (CF blocks CF-to-CF). Call directly from browser —
+// the browser's real-browser fingerprint passes Comick's JS challenge better than a worker.
 function comickUrl(path: string): string {
-  return _workerUrl ? `${_workerUrl}/comick${path}` : `${COMICK_BASE}${path}`
+  return `${COMICK_BASE}${path}`
 }
 
 // Preferred language ordering for deduplication.

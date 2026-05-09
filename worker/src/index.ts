@@ -45,24 +45,8 @@ app.get('/mangadex/*', async (c) => {
   return c.json(await r.json(), r.status as 200)
 })
 
-// ─── Comick proxy ─────────────────────────────────────────────────────────────
-// CF Worker requests bypass Comick's JS-challenge that blocks browsers
-
-app.get('/comick/*', async (c) => {
-  const path = c.req.path.replace('/comick', '')
-  const qs = new URL(c.req.url).searchParams.toString()
-  const url = `https://api.comick.io${path}${qs ? '?' + qs : ''}`
-  const r = await safeFetch(url, {
-    headers: {
-      'User-Agent': BROWSER_UA,
-      'Referer': 'https://comick.io/',
-      'Origin': 'https://comick.io',
-      'Accept': 'application/json',
-    },
-  })
-  if (!isJsonResponse(r)) return c.json({ error: 'comick blocked', detail: await r.text().then(t => t.slice(0, 60)) }, 502)
-  return c.json(await r.json(), r.status as 200)
-})
+// Comick proxy removed — Cloudflare blocks CF-Worker → Comick requests (CF-to-CF bot detection).
+// The browser calls api.comick.io directly; its real-browser fingerprint passes the challenge.
 
 // ─── NHentai ─────────────────────────────────────────────────────────────────
 // nhentai.net has a JSON API. Worker requests bypass the browser-only CF challenge.
@@ -305,19 +289,9 @@ app.get('/compare', async (c) => {
       counts.mangadex = Math.ceil((d.total ?? 0) / 2.5)
     })(),
 
-    // Comick: use last_chapter from search
-    (async () => {
-      const p = new URLSearchParams({ q: title, limit: '3', t: 'false' })
-      const r = await safeFetch(`https://api.comick.io/v1.0/search?${p}`, {
-        headers: { Referer: 'https://comick.io/', Origin: 'https://comick.io' },
-      })
-      if (!isJsonResponse(r)) return
-      const d = await r.json() as any
-      const arr = Array.isArray(d) ? d : []
-      if (!arr[0]) return
-      slugs.comick = arr[0].slug ?? arr[0].hid
-      counts.comick = arr[0].last_chapter ?? 0
-    })(),
+    // Comick: skipped in worker — CF blocks CF-to-CF requests.
+    // The browser calls Comick directly with its own fingerprint.
+    // (async () => { ... })(),
 
     // MangaNato: check chapter count from search
     (async () => {
