@@ -30,6 +30,15 @@ export default defineConfig({
         // TanStack Query handles API response caching in memory — no SW caching needed.
         runtimeCaching: [
           {
+            urlPattern: /\/md-img\?url=/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'worker-chapter-images',
+              expiration: { maxEntries: 500, maxAgeSeconds: 86400 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
             urlPattern: /^https:\/\/uploads\.mangadex\.org\/.*/i,
             handler: 'CacheFirst',
             options: {

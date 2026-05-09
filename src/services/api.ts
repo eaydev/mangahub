@@ -425,9 +425,20 @@ export async function getChapterPages(
   const { hash, data: hq, dataSaver: ds } = chapter
   const files: string[] = quality === 'data-saver' ? ds : hq
   const seg = quality === 'data-saver' ? 'data-saver' : 'data'
+
+  // When worker is configured, proxy chapter images through it.
+  // The at-home CDN assigns nodes based on the requesting IP — the worker made
+  // the /at-home/server request, so images must also come from the same worker IP.
+  const makeImageUrl = (filename: string) => {
+    const direct = `${baseUrl}/${seg}/${hash}/${filename}`
+    return _workerUrl
+      ? `${_workerUrl}/md-img?url=${encodeURIComponent(direct)}`
+      : direct
+  }
+
   return {
     chapterId,
-    pages: files.map((f) => `${baseUrl}/${seg}/${hash}/${f}`),
+    pages: files.map(makeImageUrl),
     source: 'mangadex',
   }
 }

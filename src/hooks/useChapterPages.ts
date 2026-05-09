@@ -11,6 +11,7 @@ export function useChapterPages(
     queryKey: ['chapter', 'pages', chapterId, source, quality],
     queryFn: () => getChapterPages(chapterId, source, quality),
     enabled: Boolean(chapterId),
-    staleTime: 60 * 60 * 1000, // chapter pages rarely change
+    staleTime: 5 * 60 * 1000,  // at-home URLs expire in ~15 min, refresh at 5 min
+    gcTime: 10 * 60 * 1000,
   })
 }

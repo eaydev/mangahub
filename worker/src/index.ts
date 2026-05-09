@@ -335,6 +335,36 @@ app.get('/compare', async (c) => {
   return c.json({ winner, counts, slugs, hasAdultSource })
 })
 
+// ─── Chapter image proxy ──────────────────────────────────────────────────────
+// MangaDex's at-home CDN assigns nodes based on the requesting IP.
+// The worker makes the /at-home/server request, so images must also be fetched
+// through the worker to match the IP. Without this, at-home nodes return 404.
+
+app.get('/md-img', async (c) => {
+  const encodedUrl = c.req.query('url')
+  if (!encodedUrl) return c.text('missing url', 400)
+
+  const imageUrl = decodeURIComponent(encodedUrl)
+  // Only allow MangaDex image CDN URLs to prevent open-proxy abuse
+  if (!imageUrl.includes('mangadex.network') && !imageUrl.includes('mangadex.org')) {
+    return c.text('forbidden origin', 403)
+  }
+
+  const r = await safeFetch(imageUrl, {
+    headers: { Referer: 'https://mangadex.org', Accept: 'image/*' },
+  })
+
+  if (!r.ok) return c.text('upstream error', r.status as 400)
+
+  return new Response(r.body, {
+    headers: {
+      'Content-Type': r.headers.get('content-type') ?? 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*',
+    },
+  })
+})
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get('/', (c) => c.json({ status: 'ok', sources: ['mangadex', 'comick', 'nhentai', 'manganato'] }))
