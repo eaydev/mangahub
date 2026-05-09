@@ -92,7 +92,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   imageQuality: 'high',
   pageFit: 'width',
   includeAdult: false,
-  workerUrl: '',
+  // Populated at build time from VITE_WORKER_URL env var (set in Netlify)
+  workerUrl: (import.meta as unknown as { env: Record<string, string> }).env?.VITE_WORKER_URL ?? '',
 }
 
 export function getSettings(): AppSettings {

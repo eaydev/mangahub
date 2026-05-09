@@ -27,6 +27,15 @@ function workerFetch<T>(path: string): Promise<T> {
   return get<T>(`${_workerUrl}${path}`)
 }
 
+// Route MangaDex / Comick calls through the worker when available.
+// This fixes CORS on production deployments where browsers block direct API calls.
+function mdUrl(path: string): string {
+  return _workerUrl ? `${_workerUrl}/mangadex${path}` : `${MANGADEX_BASE}${path}`
+}
+function comickUrl(path: string): string {
+  return _workerUrl ? `${_workerUrl}/comick${path}` : `${COMICK_BASE}${path}`
+}
+
 // Preferred language ordering for deduplication.
 // When multiple scanlation groups upload the same chapter number,
 // we pick whichever has the highest-priority language.
@@ -260,7 +269,7 @@ async function _mdSearch(params: SearchParams): Promise<SearchResult> {
   p.set(orderKey, orderVal)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await get<any>(`${MANGADEX_BASE}/manga?${p}`)
+  const data = await get<any>(mdUrl(`/manga?${p}`))
   return {
     data: data.data.map(parseMdManga),
     total: data.total,
@@ -273,7 +282,7 @@ async function _comickSearch(params: SearchParams): Promise<SearchResult> {
   const page = Math.floor(offset / limit) + 1
   const p = new URLSearchParams({ q: query, limit: String(limit), page: String(page), t: 'false' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await get<any[]>(`${COMICK_BASE}/v1.0/search?${p}`)
+  const data = await get<any[]>(comickUrl(`/v1.0/search?${p}`))
   const arr = Array.isArray(data) ? data : []
   return {
     data: arr.map(parseComickManga),
@@ -292,13 +301,11 @@ export async function getMangaById(id: string, source: ApiSource = 'mangadex'): 
   }
   if (source === 'comick') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const d = await get<any>(`${COMICK_BASE}/comic/${id}`)
+    const d = await get<any>(comickUrl(`/comic/${id}`))
     return parseComickManga(d.comic ?? d)
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = await get<any>(
-    `${MANGADEX_BASE}/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`,
-  )
+  const d = await get<any>(mdUrl(`/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`))
   return parseMdManga(d.data)
 }
 
@@ -332,7 +339,7 @@ export async function getChapterList(
     p.append('contentRating[]', 'erotica')
     p.append('contentRating[]', 'pornographic')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const d = await get<any>(`${MANGADEX_BASE}/manga/${mangaId}/feed?${p}`)
+    const d = await get<any>(mdUrl(`/manga/${mangaId}/feed?${p}`))
     chapters.push(...d.data.map(parseMdChapter))
     if (chapters.length >= d.total || d.data.length === 0) break
     offset += limit
@@ -346,9 +353,7 @@ async function _comickChapters(slug: string): Promise<Chapter[]> {
   let page = 1
   while (true) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const d = await get<any>(
-      `${COMICK_BASE}/comic/${slug}/chapters?lang=en&page=${page}&limit=200&chap-order=1`,
-    )
+    const d = await get<any>(comickUrl(`/comic/${slug}/chapters?lang=en&page=${page}&limit=200&chap-order=1`))
     const arr: any[] = d.chapters ?? []
     chapters.push(
       ...arr.map((c): Chapter => ({
@@ -390,7 +395,7 @@ export async function getChapterPages(
   }
   if (source === 'comick') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const d = await get<any>(`${COMICK_BASE}/chapter/${chapterId}`)
+    const d = await get<any>(comickUrl(`/chapter/${chapterId}`))
     const imgs: any[] = d.chapter?.images ?? d.images ?? []
     return {
       chapterId,
@@ -400,7 +405,7 @@ export async function getChapterPages(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = await get<any>(`${MANGADEX_BASE}/at-home/server/${chapterId}`)
+  const d = await get<any>(mdUrl(`/at-home/server/${chapterId}`))
   const { baseUrl, chapter } = d
   const { hash, data: hq, dataSaver: ds } = chapter
   const files: string[] = quality === 'data-saver' ? ds : hq
@@ -414,7 +419,7 @@ export async function getChapterPages(
 
 export async function getTags(): Promise<Tag[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = await get<any>(`${MANGADEX_BASE}/manga/tag`)
+  const d = await get<any>(mdUrl('/manga/tag'))
   return (d.data as any[])
     .map((t) => ({ id: t.id, name: t.attributes?.name?.en ?? 'Unknown' }))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -431,9 +436,7 @@ export async function getMdChapterCount(mangaId: string): Promise<number> {
   p.append('contentRating[]', 'erotica')
   p.append('contentRating[]', 'pornographic')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = await get<any>(`${MANGADEX_BASE}/manga/${mangaId}/feed?${p}`)
-  // The raw total counts per upload (many groups → inflated). Divide by rough avg groups.
-  // We return raw total because deduplication happens at chapter-list time.
+  const d = await get<any>(mdUrl(`/manga/${mangaId}/feed?${p}`))
   return d.total as number
 }
 
@@ -447,7 +450,7 @@ export interface ComickMatch {
 export async function findOnComick(title: string): Promise<ComickMatch | null> {
   const p = new URLSearchParams({ q: title, limit: '5', t: 'false' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await get<any[]>(`${COMICK_BASE}/v1.0/search?${p}`)
+  const data = await get<any[]>(comickUrl(`/v1.0/search?${p}`))
   const arr = Array.isArray(data) ? data : []
   if (arr.length === 0) return null
 
@@ -464,9 +467,7 @@ export async function findOnComick(title: string): Promise<ComickMatch | null> {
   try {
     const slug = match.slug ?? match.hid
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cd = await get<any>(
-      `${COMICK_BASE}/comic/${slug}/chapters?page=1&limit=1&chap-order=0`,
-    )
+    const cd = await get<any>(comickUrl(`/comic/${slug}/chapters?page=1&limit=1&chap-order=0`))
     // total field if available, otherwise fall back to last_chapter
     chapterCount = cd.total ?? cd.chapters?.length
   } catch {

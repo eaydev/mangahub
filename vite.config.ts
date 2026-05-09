@@ -25,16 +25,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        // API calls go through the Cloudflare Worker (set via VITE_WORKER_URL).
+        // Images are fetched directly as <img src=...> which doesn't need CORS headers.
+        // TanStack Query handles API response caching in memory — no SW caching needed.
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.mangadex\.org\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'mangadex-api',
-              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          },
           {
             urlPattern: /^https:\/\/uploads\.mangadex\.org\/.*/i,
             handler: 'CacheFirst',
@@ -50,6 +44,15 @@ export default defineConfig({
             options: {
               cacheName: 'comick-images',
               expiration: { maxEntries: 300, maxAgeSeconds: 604800 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/s4\.anilist\.co\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'anilist-images',
+              expiration: { maxEntries: 200, maxAgeSeconds: 604800 },
               cacheableResponse: { statuses: [0, 200] }
             }
           }
