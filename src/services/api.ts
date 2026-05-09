@@ -262,8 +262,8 @@ async function _mdSearch(params: SearchParams): Promise<SearchResult> {
   p.append('includes[]', 'author')
   p.append('includes[]', 'artist')
   p.append('contentRating[]', 'safe')
-  p.append('contentRating[]', 'suggestive')
   if (includeAdult) {
+    p.append('contentRating[]', 'suggestive')
     p.append('contentRating[]', 'erotica')
     p.append('contentRating[]', 'pornographic')
   }

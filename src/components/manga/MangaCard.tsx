@@ -2,9 +2,11 @@ import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Bookmark, BookmarkCheck, BookOpen } from 'lucide-react'
 import { clsx } from 'clsx'
+import { useQuery } from '@tanstack/react-query'
 import type { Manga } from '../../types'
 import Badge from '../ui/Badge'
 import { useApp } from '../../context/AppContext'
+import { searchAnilist } from '../../services/anilist'
 
 interface MangaCardProps {
   manga: Manga
@@ -14,9 +16,33 @@ const COVER_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 
 export default function MangaCard({ manga }: MangaCardProps) {
   const { inLibrary, toggleLibrary, getProgress } = useApp()
+  // tryFallback flips to true only after the primary cover fails to load
+  const [tryFallback, setTryFallback] = useState(false)
   const [imgError, setImgError] = useState(false)
   const saved = inLibrary(manga.id)
   const progress = getProgress(manga.id)
+
+  // Query AniList reactively — only fires after MangaDex cover fails
+  const { data: aniData } = useQuery({
+    queryKey: ['anilist', 'cover', manga.title],
+    queryFn: () => searchAnilist(manga.title),
+    enabled: tryFallback,
+    staleTime: 24 * 60 * 60 * 1000,
+  })
+
+  const coverSrc = imgError
+    ? COVER_FALLBACK
+    : tryFallback && aniData?.coverImage?.large
+      ? aniData.coverImage.large
+      : manga.coverUrl ?? COVER_FALLBACK
+
+  const handleImgError = useCallback(() => {
+    if (!tryFallback) {
+      setTryFallback(true)   // attempt AniList cover
+    } else {
+      setImgError(true)      // AniList also failed → SVG fallback
+    }
+  }, [tryFallback])
 
   const handleLibrary = useCallback(
     (e: React.MouseEvent) => {
@@ -46,10 +72,10 @@ export default function MangaCard({ manga }: MangaCardProps) {
       {/* Cover image */}
       <div className="relative overflow-hidden aspect-[2/3] bg-gray-800">
         <img
-          src={imgError || !manga.coverUrl ? COVER_FALLBACK : manga.coverUrl}
+          src={coverSrc}
           alt={manga.title}
           loading="lazy"
-          onError={() => setImgError(true)}
+          onError={handleImgError}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
