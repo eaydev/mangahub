@@ -38,24 +38,9 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] }
             }
           },
-          {
-            urlPattern: /^https:\/\/uploads\.mangadex\.org\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'mangadex-images',
-              expiration: { maxEntries: 300, maxAgeSeconds: 604800 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/meo\.comick\.pictures\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'comick-images',
-              expiration: { maxEntries: 300, maxAgeSeconds: 604800 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          },
+          // uploads.mangadex.org requires a Referer header — the browser sends it
+          // automatically for <img> tags, but Workbox drops it when re-fetching.
+          // Removing from SW cache lets the browser handle covers natively.
           {
             urlPattern: /^https:\/\/s4\.anilist\.co\/.*/i,
             handler: 'CacheFirst',
