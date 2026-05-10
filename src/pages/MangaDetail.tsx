@@ -49,11 +49,12 @@ export default function MangaDetail() {
   // AniList enrichment — runs in background, best-effort
   const { data: anilistMeta } = useAnilistMeta(manga?.title)
 
-  // Chapter list always uses the active (potentially auto-switched) source
+  // Resolve the correct ID for the active source.
+  // Consumet sources (mangapill, weebcentral) use the slug returned by the comparison.
+  // Comick uses its own slug. MangaDex uses the standard manga UUID.
+  const activeSlug = comparison?.sources?.[activeSource]?.slug
   const chaptersMangaId =
-    activeSource === 'comick'
-      ? (comparison?.comick.slug ?? manga?.sourceSlug ?? id!)
-      : id!
+    activeSlug ?? (activeSource === 'comick' ? (manga?.sourceSlug ?? id!) : id!)
 
   const { data: chapters = [], isPending: chapLoading } = useChapterList(
     chaptersMangaId,
@@ -69,10 +70,12 @@ export default function MangaDetail() {
 
   const sortedChapters = chapSortDesc ? [...chapters].reverse() : chapters
 
-  // Source params to embed in nav links
+  // Source params to embed in reader nav links
   const sourceParam =
-    activeSource === 'comick' && comparison?.comick.slug
-      ? `?source=comick&slug=${comparison.comick.slug}`
+    activeSlug
+      ? `?source=${activeSource}&slug=${encodeURIComponent(activeSlug)}`
+      : activeSource === 'comick' && manga?.sourceSlug
+      ? `?source=comick&slug=${manga.sourceSlug}`
       : `?source=${activeSource}${manga?.sourceSlug ? `&slug=${manga.sourceSlug}` : ''}`
 
   const handleToggleLibrary = () => {
@@ -310,7 +313,7 @@ export default function MangaDetail() {
           {!chapLoading && chapters.length === 0 && (
             <p className="text-gray-500 text-sm py-6 text-center">
               No chapters available.
-              {activeSource === 'mangadex' && comparison?.comick.available && (
+              {activeSource === 'mangadex' && comparison?.sources?.comick?.available && (
                 <button
                   onClick={() => setSource('comick')}
                   className="ml-2 text-violet-400 hover:text-violet-300 underline"

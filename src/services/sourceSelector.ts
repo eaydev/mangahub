@@ -3,27 +3,26 @@ import type { ApiSource } from '../types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type SourceEntry = { available: boolean; count: number; slug?: string }
+
 export interface SourceComparison {
   winner: ApiSource
-  mangadex: { available: boolean; count: number }
-  comick: { available: boolean; count: number; slug?: string }
-  manganato?: { available: boolean; count: number; slug?: string }
-  nhentai?: { available: boolean; count: number; id?: string }
+  sources: Partial<Record<ApiSource, SourceEntry>>
   checkedAt: number
 }
 
-// ─── Cache in localStorage ────────────────────────────────────────────────────
+// ─── Cache ────────────────────────────────────────────────────────────────────
 
-const CACHE_KEY = 'mh_source_cache'
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
+const CACHE_KEY = 'mh_source_cache_v2' // bumped: now includes consumet sources
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 
 interface CacheEntry { result: SourceComparison; cachedAt: number }
 
 function readCache(): Record<string, CacheEntry> {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}') } catch { return {} }
 }
-function writeCache(cache: Record<string, CacheEntry>) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)) } catch { /* quota */ }
+function writeCache(c: Record<string, CacheEntry>) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)) } catch { /* quota */ }
 }
 function getCached(key: string): SourceComparison | null {
   const e = readCache()[key]
@@ -37,6 +36,8 @@ function setCached(key: string, result: SourceComparison) {
 }
 
 // ─── Core comparison ──────────────────────────────────────────────────────────
+// Runs worker + consumet + direct checks ALL in parallel, then picks the
+// source with the most chapters as the winner.
 
 export async function compareSourcesForManga(
   mangaId: string,
@@ -48,96 +49,64 @@ export async function compareSourcesForManga(
   if (cached) return cached
 
   const workerUrl = getWorkerUrl()
+  const consumetUrl = getConsumetUrl()
 
-  // ── Path A: worker available → use the /compare endpoint (parallel, server-side) ──
-  if (workerUrl) {
-    try {
+  const sources: Partial<Record<ApiSource, SourceEntry>> = {}
+
+  // Run all three checks in parallel — don't let any one block the others
+  await Promise.allSettled([
+
+    // ── 1. Worker → MangaDex + Comick + MangaNato counts ──────────────────────
+    (async () => {
+      if (!workerUrl) return
       const qs = new URLSearchParams({
-        title: mangaTitle,
-        mangadexId: mangaId,
+        title: mangaTitle, mangadexId: mangaId,
         adult: includeAdult ? 'true' : 'false',
       })
-      const res = await fetch(`${workerUrl}/compare?${qs}`, {
-        signal: AbortSignal.timeout(15000),
-      })
-      if (res.ok) {
-        const d = await res.json() as {
-          winner: string
-          counts: Record<string, number>
-          slugs: Record<string, string>
-          hasAdultSource: boolean
-        }
-
-        const result: SourceComparison = {
-          winner: d.winner as ApiSource,
-          mangadex: { available: (d.counts.mangadex ?? 0) > 0, count: d.counts.mangadex ?? 0 },
-          comick: { available: (d.counts.comick ?? 0) > 0, count: d.counts.comick ?? 0, slug: d.slugs.comick },
-          manganato: d.counts.manganato != null
-            ? { available: d.counts.manganato > 0, count: d.counts.manganato, slug: d.slugs.manganato }
-            : undefined,
-          nhentai: d.counts.nhentai != null
-            ? { available: d.counts.nhentai > 0, count: d.counts.nhentai, id: d.slugs.nhentai }
-            : undefined,
-          checkedAt: Date.now(),
-        }
-        setCached(cacheKey, result)
-        return result
+      const res = await fetch(`${workerUrl}/compare?${qs}`, { signal: AbortSignal.timeout(15000) })
+      if (!res.ok) return
+      const d = await res.json() as { counts: Record<string, number>; slugs: Record<string, string> }
+      for (const [src, count] of Object.entries(d.counts)) {
+        if (count > 0) sources[src as ApiSource] = { available: true, count, slug: d.slugs?.[src] }
       }
-    } catch { /* fall through to direct checks */ }
-  }
+    })(),
 
-  // ── Path B-extra: consumet server available → include in comparison ──────────
-  const consumetUrl = getConsumetUrl()
-  if (consumetUrl) {
-    try {
+    // ── 2. Consumet → MangaPill + WeebCentral counts ──────────────────────────
+    (async () => {
+      if (!consumetUrl) return
       const qs = new URLSearchParams({ title: mangaTitle, providers: 'mangapill,weebcentral' })
-      const res = await fetch(`${consumetUrl}/compare?${qs}`, { signal: AbortSignal.timeout(20000) })
-      if (res.ok) {
-        const d = await res.json() as { winner: string; results: Record<string, { chapterCount?: number; available?: boolean; id?: string }> }
-        const best = Object.entries(d.results)
-          .filter(([, v]) => v.available && (v.chapterCount ?? 0) > 0)
-          .sort(([, a], [, b]) => (b.chapterCount ?? 0) - (a.chapterCount ?? 0))[0]
-
-        if (best) {
-          const [bestSource, bestData] = best
-          // Only use consumet source if significantly better than MangaDex estimate
-          const mdEst = Math.ceil((await getMdChapterCount(mangaId).catch(() => 0)) / 2.5)
-          if ((bestData.chapterCount ?? 0) > mdEst * 1.3) {
-            const result: SourceComparison = {
-              winner: bestSource as ApiSource,
-              mangadex: { available: mdEst > 0, count: mdEst },
-              comick: { available: false, count: 0 },
-              checkedAt: Date.now(),
-            }
-            setCached(cacheKey, result)
-            return result
-          }
+      const res = await fetch(`${consumetUrl}/compare?${qs}`, { signal: AbortSignal.timeout(25000) })
+      if (!res.ok) return
+      const d = await res.json() as { results: Record<string, { chapterCount?: number; available?: boolean; id?: string }> }
+      for (const [src, v] of Object.entries(d.results)) {
+        if (v.available && (v.chapterCount ?? 0) > 0) {
+          sources[src as ApiSource] = { available: true, count: v.chapterCount ?? 0, slug: v.id }
         }
       }
-    } catch { /* best-effort */ }
-  }
+    })(),
 
-  // ── Path D: direct checks (MangaDex + Comick) ────────────────────────────────
-  const [mdResult, ckResult] = await Promise.allSettled([
-    getMdChapterCount(mangaId),
-    findOnComick(mangaTitle),
+    // ── 3. Direct fallback: MangaDex + Comick (if worker not available) ────────
+    (async () => {
+      if (workerUrl) return // worker already covers these
+      const [mdResult, ckResult] = await Promise.allSettled([
+        getMdChapterCount(mangaId),
+        findOnComick(mangaTitle),
+      ])
+      if (mdResult.status === 'fulfilled') {
+        sources.mangadex = { available: true, count: Math.ceil(mdResult.value / 2.5) }
+      }
+      const ck = ckResult.status === 'fulfilled' ? ckResult.value : null
+      if (ck) sources.comick = { available: true, count: ck.chapterCount ?? ck.lastChapter ?? 0, slug: ck.slug }
+    })(),
   ])
 
-  const mdCount = mdResult.status === 'fulfilled' ? mdResult.value : 0
-  const mdAvailable = mdResult.status === 'fulfilled'
-  const ck = ckResult.status === 'fulfilled' ? ckResult.value : null
-  const ckCount = ck?.chapterCount ?? ck?.lastChapter ?? 0
-  const ckAvailable = ck !== null
+  // Pick the source with the highest chapter count
+  // MangaDex estimate is inflated (raw feed count / 2.5) so weigh consumet sources equally
+  const winner = (Object.entries(sources) as [ApiSource, SourceEntry][])
+    .filter(([, v]) => v.available && v.count > 0)
+    .sort(([, a], [, b]) => b.count - a.count)[0]?.[0] ?? 'mangadex'
 
-  const mdEstimate = Math.ceil(mdCount / 2.5)
-  const winner: ApiSource = ckAvailable && ckCount >= mdEstimate * 1.4 ? 'comick' : 'mangadex'
-
-  const result: SourceComparison = {
-    winner,
-    mangadex: { available: mdAvailable, count: mdEstimate },
-    comick: { available: ckAvailable, count: ckCount, slug: ck?.slug },
-    checkedAt: Date.now(),
-  }
+  const result: SourceComparison = { winner, sources, checkedAt: Date.now() }
   setCached(cacheKey, result)
   return result
 }

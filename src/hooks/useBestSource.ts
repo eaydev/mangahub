@@ -8,7 +8,6 @@ export interface BestSourceState {
   isChecking: boolean
   activeSource: ApiSource
   setSource: (s: ApiSource) => void
-  /** nhentai gallery id, if adult content is enabled and nhentai found a match */
   nhentaiId?: string
 }
 
@@ -29,8 +28,7 @@ export function useBestSource(manga: Manga | undefined): BestSourceState {
       .then((result) => {
         if (cancelled) return
         setComparison(result)
-        // Auto-switch to the winner — transparent to the user
-        setActiveSource(result.winner as ApiSource)
+        setActiveSource(result.winner)
       })
       .catch(() => { /* best-effort */ })
       .finally(() => { if (!cancelled) setIsChecking(false) })
@@ -39,11 +37,12 @@ export function useBestSource(manga: Manga | undefined): BestSourceState {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manga?.id, manga?.title, settings.includeAdult])
 
+  const nhentaiEntry = comparison?.sources?.nhentai
   return {
     comparison,
     isChecking,
     activeSource,
     setSource: setActiveSource,
-    nhentaiId: comparison?.nhentai?.available ? comparison.nhentai.id : undefined,
+    nhentaiId: nhentaiEntry?.available ? nhentaiEntry.slug : undefined,
   }
 }
