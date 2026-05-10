@@ -28,11 +28,12 @@ export default function Reader() {
   const lastScrollY = useRef(0)
   const navTimeout = useRef<ReturnType<typeof setTimeout>>()
 
-  // Consumet sources (mangapill, weebcentral) use their own slug, not the MangaDex UUID
+  // Metadata (title, cover) ALWAYS comes from MangaDex — it's the canonical source.
+  // The MangaDex UUID is always in the URL path regardless of which source serves chapters.
   const consumetSources = new Set(['mangapill', 'weebcentral'])
   const sourceId = (source === 'comick' || consumetSources.has(source)) ? slug : mangaId!
 
-  const { data: manga } = useMangaDetail(sourceId, source)
+  const { data: manga } = useMangaDetail(mangaId!, 'mangadex')
   const { data: chapters = [] } = useChapterList(sourceId, source)
   const {
     data: chapterPages,

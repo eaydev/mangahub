@@ -430,12 +430,15 @@ export async function getChapterPages(
   if (CONSUMET_SOURCES.has(source)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = await consumetFetch<any>(`/pages/${source}/${encodeURIComponent(chapterId)}`)
+    const referer: string = d.imageReferer ?? ''
     const pages: string[] = (d.pages ?? []).map((p: any) => {
       const url = p.url as string
-      // WeebCentral (and possibly others) need a Referer header for their CDN.
-      // Route those through the worker image proxy which can inject headers.
-      if (d.imageReferer && _workerUrl) {
-        return `${_workerUrl}/proxy-img?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(d.imageReferer)}`
+      // Always proxy consumet images through the worker — handles both CORS issues
+      // (MangaPill CDN blocks browsers) and Referer requirements (WeebCentral).
+      if (_workerUrl) {
+        const qs = new URLSearchParams({ url })
+        if (referer) qs.set('referer', referer)
+        return `${_workerUrl}/proxy-img?${qs}`
       }
       return url
     })

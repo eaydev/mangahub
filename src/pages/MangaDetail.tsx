@@ -40,8 +40,9 @@ export default function MangaDetail() {
 
   const { inLibrary, toggleLibrary, getProgress } = useApp()
 
-  // Load the manga metadata from the URL-specified source
-  const { data: manga, isPending, isError, refetch } = useMangaDetail(id!, urlSource)
+  // Metadata ALWAYS comes from MangaDex using the UUID in the URL.
+  // The UUID is the canonical identifier regardless of which source reads chapters.
+  const { data: manga, isPending, isError, refetch } = useMangaDetail(id!, 'mangadex')
 
   // Auto-source comparison runs in the background once manga metadata loads
   const { comparison, isChecking, activeSource, setSource } = useBestSource(manga)
