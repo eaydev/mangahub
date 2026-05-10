@@ -13,7 +13,7 @@ app.use(express.json())
 //   MangaHere   — large archive but chapter pages time out, search-only useful
 
 const PROVIDER_DEFS = {
-  mangapill:    { factory: () => new MANGA.MangaPill(),    imageReferer: null },
+  mangapill:    { factory: () => new MANGA.MangaPill(),    imageReferer: 'https://mangapill.com' },
   weebcentral:  { factory: () => new MANGA.WeebCentral(),  imageReferer: 'https://weebcentral.com' },
   comick:       { factory: () => new MANGA.ComicK(),       imageReferer: null },
 }
