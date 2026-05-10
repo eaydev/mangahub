@@ -7,7 +7,7 @@ import React, {
 } from 'react'
 import type { AppSettings, LibraryEntry, Manga, ReadingProgress } from '../types'
 import * as storage from '../services/storage'
-import { setWorkerUrl } from '../services/api'
+import { setWorkerUrl, setConsumetUrl } from '../services/api'
 
 interface AppContextValue {
   settings: AppSettings
@@ -36,11 +36,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = storage.getSettings()
     setSettings(next)
     setWorkerUrl(next.workerUrl)
+    setConsumetUrl(next.consumetUrl)
   }, [])
 
   // Keep API service in sync with persisted worker URL on mount
   useEffect(() => {
     setWorkerUrl(settings.workerUrl)
+    setConsumetUrl(settings.consumetUrl)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

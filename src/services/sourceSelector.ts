@@ -1,4 +1,4 @@
-import { getMdChapterCount, findOnComick, getWorkerUrl } from './api'
+import { getMdChapterCount, findOnComick, getWorkerUrl, getConsumetUrl } from './api'
 import type { ApiSource } from '../types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -86,7 +86,38 @@ export async function compareSourcesForManga(
     } catch { /* fall through to direct checks */ }
   }
 
-  // ── Path B: no worker → direct checks (MangaDex + Comick only) ───────────────
+  // ── Path B-extra: consumet server available → include in comparison ──────────
+  const consumetUrl = getConsumetUrl()
+  if (consumetUrl) {
+    try {
+      const qs = new URLSearchParams({ title: mangaTitle, providers: 'mangapill,weebcentral' })
+      const res = await fetch(`${consumetUrl}/compare?${qs}`, { signal: AbortSignal.timeout(20000) })
+      if (res.ok) {
+        const d = await res.json() as { winner: string; results: Record<string, { chapterCount?: number; available?: boolean; id?: string }> }
+        const best = Object.entries(d.results)
+          .filter(([, v]) => v.available && (v.chapterCount ?? 0) > 0)
+          .sort(([, a], [, b]) => (b.chapterCount ?? 0) - (a.chapterCount ?? 0))[0]
+
+        if (best) {
+          const [bestSource, bestData] = best
+          // Only use consumet source if significantly better than MangaDex estimate
+          const mdEst = Math.ceil((await getMdChapterCount(mangaId).catch(() => 0)) / 2.5)
+          if ((bestData.chapterCount ?? 0) > mdEst * 1.3) {
+            const result: SourceComparison = {
+              winner: bestSource as ApiSource,
+              mangadex: { available: mdEst > 0, count: mdEst },
+              comick: { available: false, count: 0 },
+              checkedAt: Date.now(),
+            }
+            setCached(cacheKey, result)
+            return result
+          }
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // ── Path D: direct checks (MangaDex + Comick) ────────────────────────────────
   const [mdResult, ckResult] = await Promise.allSettled([
     getMdChapterCount(mangaId),
     findOnComick(mangaTitle),

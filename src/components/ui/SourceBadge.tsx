@@ -2,10 +2,12 @@ import type { ApiSource } from '../../types'
 import { clsx } from 'clsx'
 
 const config: Record<ApiSource, { label: string; dot: string }> = {
-  mangadex:  { label: 'MangaDex',  dot: 'bg-orange-400' },
-  comick:    { label: 'Comick',    dot: 'bg-blue-400' },
-  nhentai:   { label: 'NHentai',   dot: 'bg-red-400' },
-  manganato: { label: 'MangaNato', dot: 'bg-green-400' },
+  mangadex:    { label: 'MangaDex',    dot: 'bg-orange-400' },
+  comick:      { label: 'Comick',      dot: 'bg-blue-400' },
+  nhentai:     { label: 'NHentai',     dot: 'bg-red-400' },
+  manganato:   { label: 'MangaNato',   dot: 'bg-green-400' },
+  mangapill:   { label: 'MangaPill',   dot: 'bg-purple-400' },
+  weebcentral: { label: 'WeebCentral', dot: 'bg-cyan-400' },
 }
 
 export default function SourceBadge({ source, className }: { source: ApiSource; className?: string }) {

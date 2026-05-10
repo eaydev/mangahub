@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { searchManga, getWorkerUrl } from '../services/api'
+import { searchManga, getWorkerUrl, getConsumetUrl } from '../services/api'
 import type { FilterState, ApiSource, SearchParams } from '../types'
 
 const LIMIT = 24
@@ -8,10 +8,11 @@ export function useMangaList(
   filters: FilterState & Pick<SearchParams, 'includeAdult'>,
   source: ApiSource,
 ) {
-  // Worker-only sources: disable query when worker not configured
   const workerOnly = source === 'nhentai' || source === 'manganato'
+  const consumetOnly = source === 'mangapill' || source === 'weebcentral'
   const workerReady = Boolean(getWorkerUrl())
-  const enabled = workerOnly ? workerReady : true
+  const consumetReady = Boolean(getConsumetUrl())
+  const enabled = workerOnly ? workerReady : consumetOnly ? consumetReady : true
 
   return useInfiniteQuery({
     queryKey: ['manga', 'list', filters, source],

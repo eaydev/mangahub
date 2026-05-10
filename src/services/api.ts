@@ -17,6 +17,31 @@ export const COMICK_BASE = 'https://api.comick.io'
 const MD_COVERS = 'https://uploads.mangadex.org/covers'
 const COMICK_IMG = 'https://meo.comick.pictures'
 
+// Consumet server URL
+let _consumetUrl = ''
+export function setConsumetUrl(url: string) { _consumetUrl = url.replace(/\/$/, '') }
+export function getConsumetUrl() { return _consumetUrl }
+
+function _initConsumetUrl(): string {
+  try {
+    const s = JSON.parse(localStorage.getItem('mh_settings') ?? '{}')
+    if (s.consumetUrl) return String(s.consumetUrl).replace(/\/$/, '')
+  } catch { /* ignore */ }
+  try {
+    const env = (import.meta as { env?: Record<string, string> }).env
+    if (env?.VITE_CONSUMET_URL) return env.VITE_CONSUMET_URL.replace(/\/$/, '')
+  } catch { /* ignore */ }
+  return ''
+}
+_consumetUrl = _initConsumetUrl()
+
+function consumetFetch<T>(path: string): Promise<T> {
+  if (!_consumetUrl) throw new Error('Consumet server not configured')
+  return get<T>(`${_consumetUrl}${path}`)
+}
+
+const CONSUMET_SOURCES = new Set<string>(['mangapill', 'weebcentral'])
+
 // Worker URL — read synchronously on module load so the very first API call uses it.
 // Priority: localStorage (user-configured) → build-time VITE_WORKER_URL env var.
 function _readWorkerUrl(): string {
@@ -245,6 +270,7 @@ export async function searchManga(params: SearchParams): Promise<SearchResult> {
   if (source === 'nhentai') return _nhentaiSearch(params)
   if (source === 'manganato') return _manganatoSearch(params)
   if (source === 'comick') return _comickSearch(params)
+  if (CONSUMET_SOURCES.has(source)) return _consumetSearch(params)
 
   try {
     return await _mdSearch(params)
@@ -304,6 +330,9 @@ async function _comickSearch(params: SearchParams): Promise<SearchResult> {
 }
 
 export async function getMangaById(id: string, source: ApiSource = 'mangadex'): Promise<Manga> {
+  if (CONSUMET_SOURCES.has(source)) {
+    return consumetFetch<Manga>(`/manga/${source}/${encodeURIComponent(id)}`)
+  }
   if (source === 'nhentai') {
     return workerFetch<Manga>(`/nhentai/manga/${id}`)
   }
@@ -325,6 +354,11 @@ export async function getChapterList(
   mangaId: string,
   source: ApiSource = 'mangadex',
 ): Promise<Chapter[]> {
+  if (CONSUMET_SOURCES.has(source)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await consumetFetch<any>(`/manga/${source}/${encodeURIComponent(mangaId)}`)
+    return d.chapters ?? []
+  }
   if (source === 'nhentai') {
     return workerFetch<Chapter[]>(`/nhentai/chapters/${mangaId}`)
   }
@@ -390,6 +424,20 @@ export async function getChapterPages(
   source: ApiSource = 'mangadex',
   quality: 'high' | 'data-saver' = 'high',
 ): Promise<ChapterPages> {
+  if (CONSUMET_SOURCES.has(source)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await consumetFetch<any>(`/pages/${source}/${encodeURIComponent(chapterId)}`)
+    const pages: string[] = (d.pages ?? []).map((p: any) => {
+      const url = p.url as string
+      // WeebCentral (and possibly others) need a Referer header for their CDN.
+      // Route those through the worker image proxy which can inject headers.
+      if (d.imageReferer && _workerUrl) {
+        return `${_workerUrl}/proxy-img?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(d.imageReferer)}`
+      }
+      return url
+    })
+    return { chapterId, pages, source }
+  }
   if (source === 'nhentai') {
     // chapterId == gallery id for nhentai
     const d = await workerFetch<{ chapterId: string; pages: string[]; source: string }>(
@@ -502,6 +550,21 @@ export async function findOnComick(title: string): Promise<ComickMatch | null> {
     title: match.title ?? match.name,
     lastChapter: match.last_chapter ?? 0,
     chapterCount,
+  }
+}
+
+// ─── Consumet search ──────────────────────────────────────────────────────────
+
+async function _consumetSearch(params: SearchParams): Promise<SearchResult> {
+  const { query = '', source = 'mangapill', offset = 0, limit = 24 } = params
+  const page = Math.floor(offset / limit) + 1
+  const qs = new URLSearchParams({ q: query, provider: source, page: String(page) })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = await consumetFetch<any>(`/search?${qs}`)
+  return {
+    data: d.data ?? [],
+    total: d.hasNextPage ? offset + limit + 1 : offset + (d.data?.length ?? 0),
+    source: source as ApiSource,
   }
 }
 

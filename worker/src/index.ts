@@ -335,6 +335,29 @@ app.get('/compare', async (c) => {
   return c.json({ winner, counts, slugs, hasAdultSource })
 })
 
+// ─── Generic image proxy (for CDNs that need a Referer header) ───────────────
+// Used for WeebCentral and other consumet providers whose CDNs hotlink-protect.
+
+app.get('/proxy-img', async (c) => {
+  const encodedUrl = c.req.query('url')
+  const referer = c.req.query('referer') ?? ''
+  if (!encodedUrl) return c.text('missing url', 400)
+
+  const imageUrl = decodeURIComponent(encodedUrl)
+  const r = await safeFetch(imageUrl, {
+    headers: { ...(referer ? { Referer: referer } : {}), Accept: 'image/*' },
+  })
+  if (!r.ok) return c.text('upstream error', r.status as 400)
+
+  return new Response(r.body, {
+    headers: {
+      'Content-Type': r.headers.get('content-type') ?? 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*',
+    },
+  })
+})
+
 // ─── Chapter image proxy ──────────────────────────────────────────────────────
 // MangaDex's at-home CDN assigns nodes based on the requesting IP.
 // The worker makes the /at-home/server request, so images must also be fetched

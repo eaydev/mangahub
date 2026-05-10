@@ -1,4 +1,4 @@
-export type ApiSource = 'mangadex' | 'comick' | 'nhentai' | 'manganato'
+export type ApiSource = 'mangadex' | 'comick' | 'nhentai' | 'manganato' | 'mangapill' | 'weebcentral'
 export type MangaStatus = 'ongoing' | 'completed' | 'hiatus' | 'cancelled'
 export type MangaType = 'manga' | 'manhwa' | 'manhua' | 'novel' | 'oneshot' | 'doujinshi'
 export type SortOption = 'latest' | 'popular' | 'title' | 'rating'
@@ -94,6 +94,7 @@ export interface AppSettings {
   pageFit: PageFit
   includeAdult: boolean
   workerUrl: string
+  consumetUrl: string
 }
 
 export interface FilterState {

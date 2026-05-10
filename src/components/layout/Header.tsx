@@ -165,6 +165,26 @@ export default function Header() {
             </p>
           </div>
 
+          {/* Consumet URL */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
+              <Zap size={14} className="text-green-400" /> Consumet Server URL
+              {settings.consumetUrl && (
+                <span className="ml-auto text-[10px] bg-green-900/50 text-green-400 border border-green-700/40 px-1.5 py-0.5 rounded">active</span>
+              )}
+            </label>
+            <input
+              type="url"
+              value={settings.consumetUrl}
+              onChange={(e) => updateSettings({ consumetUrl: e.target.value.trim() })}
+              placeholder="https://your-app.up.railway.app"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg h-9 px-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Unlocks MangaPill + WeebCentral (300+ chapters for most manga). Deploy <code className="text-gray-400">consumet-server/</code> to Railway.
+            </p>
+          </div>
+
           {/* Adult content toggle */}
           <div className="flex items-center justify-between">
             <div>
