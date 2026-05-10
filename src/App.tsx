@@ -12,8 +12,9 @@ export default function App() {
       <div className="min-h-screen bg-gray-950 text-white">
         <Routes>
           {/* Reader gets its own full-screen layout with no shared header */}
+          {/* Splat (*) captures chapter IDs that contain slashes (e.g. MangaPill) */}
           <Route
-            path="/manga/:id/chapter/:chapterId"
+            path="/manga/:id/chapter/*"
             element={<Reader />}
           />
           {/* All other pages share the header */}

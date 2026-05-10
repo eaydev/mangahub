@@ -13,7 +13,8 @@ import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 
 export default function Reader() {
-  const { id: mangaId, chapterId } = useParams<{ id: string; chapterId: string }>()
+  // '*' splat captures the full chapter ID including any slashes (e.g. MangaPill: "580-10001000/blue-lock-chapter-1")
+  const { id: mangaId, '*': chapterId } = useParams<{ id: string; '*': string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const source = (searchParams.get('source') ?? 'mangadex') as ApiSource
