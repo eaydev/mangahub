@@ -93,7 +93,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   pageFit: 'width',
   includeAdult: false,
   workerUrl: (import.meta as unknown as { env: Record<string, string> }).env?.VITE_WORKER_URL ?? '',
-  consumetUrl: (import.meta as unknown as { env: Record<string, string> }).env?.VITE_CONSUMET_URL ?? '',
+  consumetUrl: import.meta.env.VITE_CONSUMET_URL ?? '',
 }
 
 export function getSettings(): AppSettings {

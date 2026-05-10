@@ -27,10 +27,9 @@ function _initConsumetUrl(): string {
     const s = JSON.parse(localStorage.getItem('mh_settings') ?? '{}')
     if (s.consumetUrl) return String(s.consumetUrl).replace(/\/$/, '')
   } catch { /* ignore */ }
-  try {
-    const env = (import.meta as { env?: Record<string, string> }).env
-    if (env?.VITE_CONSUMET_URL) return env.VITE_CONSUMET_URL.replace(/\/$/, '')
-  } catch { /* ignore */ }
+  // Vite replaces import.meta.env.VITE_* at build time
+  const fromEnv = import.meta.env.VITE_CONSUMET_URL
+  if (fromEnv) return String(fromEnv).replace(/\/$/, '')
   return ''
 }
 _consumetUrl = _initConsumetUrl()
