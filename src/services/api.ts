@@ -19,17 +19,21 @@ const COMICK_IMG = 'https://meo.comick.pictures'
 
 // Consumet server URL
 let _consumetUrl = ''
-export function setConsumetUrl(url: string) { _consumetUrl = url.replace(/\/$/, '') }
+function normalizeUrl(url: string): string {
+  const u = url.trim().replace(/\/$/, '')
+  if (u && !u.startsWith('http')) return `https://${u}`
+  return u
+}
+export function setConsumetUrl(url: string) { _consumetUrl = normalizeUrl(url) }
 export function getConsumetUrl() { return _consumetUrl }
 
 function _initConsumetUrl(): string {
   try {
     const s = JSON.parse(localStorage.getItem('mh_settings') ?? '{}')
-    if (s.consumetUrl) return String(s.consumetUrl).replace(/\/$/, '')
+    if (s.consumetUrl) return normalizeUrl(String(s.consumetUrl))
   } catch { /* ignore */ }
-  // Vite replaces import.meta.env.VITE_* at build time
   const fromEnv = import.meta.env.VITE_CONSUMET_URL
-  if (fromEnv) return String(fromEnv).replace(/\/$/, '')
+  if (fromEnv) return normalizeUrl(String(fromEnv))
   return ''
 }
 _consumetUrl = _initConsumetUrl()
@@ -56,7 +60,7 @@ function _readWorkerUrl(): string {
 }
 
 let _workerUrl: string = _readWorkerUrl()
-export function setWorkerUrl(url: string) { _workerUrl = url.replace(/\/$/, '') }
+export function setWorkerUrl(url: string) { _workerUrl = normalizeUrl(url) }
 export function getWorkerUrl() { return _workerUrl }
 
 function workerFetch<T>(path: string): Promise<T> {

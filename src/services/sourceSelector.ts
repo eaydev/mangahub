@@ -13,7 +13,7 @@ export interface SourceComparison {
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
-const CACHE_KEY = 'mh_source_cache_v2' // bumped: now includes consumet sources
+const CACHE_KEY = 'mh_source_cache_v3'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 
 interface CacheEntry { result: SourceComparison; cachedAt: number }
@@ -44,7 +44,9 @@ export async function compareSourcesForManga(
   mangaTitle: string,
   includeAdult = false,
 ): Promise<SourceComparison> {
-  const cacheKey = `${mangaId}:${includeAdult ? 'a' : 'n'}`
+  // Include server config in key — changing URLs automatically invalidates cache
+  const configHash = btoa(`${getWorkerUrl()}|${getConsumetUrl()}`).slice(0, 8)
+  const cacheKey = `${mangaId}:${includeAdult ? 'a' : 'n'}:${configHash}`
   const cached = getCached(cacheKey)
   if (cached) return cached
 
