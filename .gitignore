@@ -6,3 +6,5 @@ worker/node_modules/
 *.local
 .DS_Store
 .wrangler/
+public/pwa-192x192.png
+public/pwa-512x512.png
