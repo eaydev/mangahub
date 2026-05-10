@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, Bookmark, Settings, Search, X, Database, Zap, Shield } from 'lucide-react'
+import { BookOpen, Bookmark, Settings, Search, X, Shield } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useApp } from '../../context/AppContext'
 import Modal from '../ui/Modal'
@@ -124,67 +124,6 @@ export default function Header() {
       {/* Settings modal */}
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Settings" size="sm">
         <div className="p-5 space-y-5">
-          {/* Source */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
-              <Database size={14} /> API Source
-            </label>
-            <Select
-              value={settings.source}
-              onChange={(v) => updateSettings({ source: v as 'mangadex' | 'comick' })}
-              options={[
-                { value: 'mangadex', label: 'MangaDex (primary)' },
-                { value: 'comick', label: 'Comick (fallback)' },
-              ]}
-              className="w-full"
-            />
-            <p className="mt-1.5 text-xs text-gray-500">
-              MangaDex is the primary source. Comick is used as fallback automatically.
-              <br />
-              <span className="text-yellow-600">Note: Comick requires a real browser session — it may not work if you've never visited comick.io.</span>
-            </p>
-          </div>
-
-          {/* Worker URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
-              <Zap size={14} className="text-violet-400" /> Worker URL
-              {settings.workerUrl && (
-                <span className="ml-auto text-[10px] bg-green-900/50 text-green-400 border border-green-700/40 px-1.5 py-0.5 rounded">active</span>
-              )}
-            </label>
-            <input
-              type="url"
-              value={settings.workerUrl}
-              onChange={(e) => updateSettings({ workerUrl: e.target.value.trim() })}
-              placeholder="https://mangahub-proxy.your-name.workers.dev"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg h-9 px-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Unlocks MangaNato + NHentai sources. Deploy <code className="text-gray-400">worker/</code> to Cloudflare — see README.
-            </p>
-          </div>
-
-          {/* Consumet URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
-              <Zap size={14} className="text-green-400" /> Consumet Server URL
-              {settings.consumetUrl && (
-                <span className="ml-auto text-[10px] bg-green-900/50 text-green-400 border border-green-700/40 px-1.5 py-0.5 rounded">active</span>
-              )}
-            </label>
-            <input
-              type="url"
-              value={settings.consumetUrl}
-              onChange={(e) => updateSettings({ consumetUrl: e.target.value.trim() })}
-              placeholder="https://your-app.up.railway.app"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg h-9 px-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Unlocks MangaPill + WeebCentral (300+ chapters for most manga). Deploy <code className="text-gray-400">consumet-server/</code> to Railway.
-            </p>
-          </div>
-
           {/* Adult content toggle */}
           <div className="flex items-center justify-between">
             <div>
@@ -236,14 +175,13 @@ export default function Header() {
             />
           </div>
 
-          <div className="pt-2 border-t border-gray-800 flex items-center gap-3 flex-wrap">
-            <SourceBadge source={settings.source} />
-            {settings.workerUrl && (
-              <>
-                <SourceBadge source="nhentai" />
-                <SourceBadge source="manganato" />
-              </>
-            )}
+          <div className="pt-2 border-t border-gray-800 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">Active sources:</span>
+            <SourceBadge source="mangadex" />
+            {settings.workerUrl && <SourceBadge source="manganato" />}
+            {settings.workerUrl && settings.includeAdult && <SourceBadge source="nhentai" />}
+            {settings.consumetUrl && <SourceBadge source="mangapill" />}
+            {settings.consumetUrl && <SourceBadge source="weebcentral" />}
           </div>
         </div>
       </Modal>
