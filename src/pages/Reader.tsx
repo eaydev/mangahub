@@ -28,11 +28,12 @@ export default function Reader() {
   const lastScrollY = useRef(0)
   const navTimeout = useRef<ReturnType<typeof setTimeout>>()
 
-  const { data: manga } = useMangaDetail(mangaId!, source)
-  const { data: chapters = [] } = useChapterList(
-    source === 'comick' ? slug : mangaId!,
-    source,
-  )
+  // Consumet sources (mangapill, weebcentral) use their own slug, not the MangaDex UUID
+  const consumetSources = new Set(['mangapill', 'weebcentral'])
+  const sourceId = (source === 'comick' || consumetSources.has(source)) ? slug : mangaId!
+
+  const { data: manga } = useMangaDetail(sourceId, source)
+  const { data: chapters = [] } = useChapterList(sourceId, source)
   const {
     data: chapterPages,
     isPending,
@@ -42,7 +43,7 @@ export default function Reader() {
 
   const currentChapter = chapters.find((c) => c.id === chapterId)
   const pages = chapterPages?.pages ?? []
-  const sourceParam = `?source=${source}${manga?.sourceSlug ? `&slug=${manga.sourceSlug}` : ''}`
+  const sourceParam = `?source=${source}${slug !== mangaId ? `&slug=${encodeURIComponent(slug)}` : ''}`
 
   // Auto-hide nav on scroll down, show on scroll up
   useEffect(() => {
