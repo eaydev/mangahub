@@ -50,16 +50,22 @@ export default function MangaDetail() {
   // AniList enrichment — runs in background, best-effort
   const { data: anilistMeta } = useAnilistMeta(manga?.title)
 
-  // Resolve the correct ID for the active source.
-  // Consumet sources (mangapill, weebcentral) use the slug returned by the comparison.
-  // Comick uses its own slug. MangaDex uses the standard manga UUID.
+  const CONSUMET = new Set(['mangapill', 'weebcentral'])
   const activeSlug = comparison?.sources?.[activeSource]?.slug
+
+  // For consumet sources we MUST have the slug before fetching chapters.
+  // If slug isn't available yet, fall back to MangaDex until comparison resolves.
+  const effectiveSource = (CONSUMET.has(activeSource) && !activeSlug) ? 'mangadex' : activeSource
   const chaptersMangaId =
-    activeSlug ?? (activeSource === 'comick' ? (manga?.sourceSlug ?? id!) : id!)
+    activeSlug
+      ? activeSlug
+      : effectiveSource === 'comick'
+        ? (manga?.sourceSlug ?? id!)
+        : id!
 
   const { data: chapters = [], isPending: chapLoading } = useChapterList(
     chaptersMangaId,
-    activeSource,
+    effectiveSource,
   )
 
   const [descExpanded, setDescExpanded] = useState(false)

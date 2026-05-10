@@ -334,6 +334,7 @@ async function _comickSearch(params: SearchParams): Promise<SearchResult> {
 
 export async function getMangaById(id: string, source: ApiSource = 'mangadex'): Promise<Manga> {
   if (CONSUMET_SOURCES.has(source)) {
+    if (MD_UUID.test(id)) throw new Error(`consumet source ${source} requires a slug, not a UUID`)
     return consumetFetch<Manga>(`/manga/${source}/${encodeURIComponent(id)}`)
   }
   if (source === 'nhentai') {
@@ -353,11 +354,17 @@ export async function getMangaById(id: string, source: ApiSource = 'mangadex'): 
   return parseMdManga(d.data)
 }
 
+// MangaDex UUIDs — consumet sources don't understand these
+const MD_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function getChapterList(
   mangaId: string,
   source: ApiSource = 'mangadex',
 ): Promise<Chapter[]> {
   if (CONSUMET_SOURCES.has(source)) {
+    // Guard: if we only have the MangaDex UUID the slug hasn't arrived yet — return
+    // empty so TanStack Query re-fetches once the correct slug is available.
+    if (MD_UUID.test(mangaId)) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = await consumetFetch<any>(`/manga/${source}/${encodeURIComponent(mangaId)}`)
     return d.chapters ?? []
